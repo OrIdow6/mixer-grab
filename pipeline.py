@@ -188,10 +188,8 @@ class WgetArgs(object):
         item['item_value'] = item_value
 
         if item_type == 'clip':
-            user, clip = item_value.split(':', 1)
-            wget_args.extend(['--warc-header', 'mixer-clip: ' + clip])
-            wget_args.append('https://mixer.com/{}?clip={}'.format(user, clip))
-            wget_args.append('https://mixer.com/api/v1/clips/' + clip)
+            wget_args.extend(['--warc-header', 'mixer-clip: ' + item_value])
+            wget_args.append('https://mixer.com/api/v1/clips/' + item_value)
         else:
             raise Exception('Unknown item')
 

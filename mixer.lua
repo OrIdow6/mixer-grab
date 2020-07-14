@@ -1,5 +1,6 @@
 dofile("table_show.lua")
 dofile("urlcode.lua")
+JSON = (loadfile "JSON.lua")()
 
 local item_value = os.getenv('item_value')
 local item_type = os.getenv('item_type')
@@ -12,10 +13,19 @@ local downloaded = {}
 local addedtolist = {}
 local allowed_urls = {}
 local ids = {}
+local current_id = nil
 local abortgrab = false
 
 for ignore in io.open("ignore-list", "r"):lines() do
   downloaded[ignore] = true
+end
+
+load_json_file = function(file)
+  if file then
+    return JSON:decode(file)
+  else
+    return nil
+  end
 end
 
 read_file = function(file)
@@ -136,12 +146,45 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   end
 
   if allowed(url, nil) and status_code == 200
-    and not string.match(url, "%.ts$") then
+    and not string.match(url, "%.ts$")
+    and not string.match(url, "^https?://uploads%.mixer%.com/") then
     html = read_file(file)
     if string.match(url, "%.m3u8$") then
       for newurl in string.gmatch(html, "([^\r\n]+)") do
         checknewurl(newurl, true)
       end
+    end
+    if string.match(url, "^https?://mixer%.com/api/v1/clips/[0-9a-f%-]+$") then
+      local data = load_json_file(html)
+      check("https://mixer.com/api/v1/ascension/channels/" .. data["ownerChannelId"] .. "/details", true)
+      check("https://mixer.com/api/v1/channels/" .. data["ownerChannelId"] .. "/broadcast", true)
+      check("https://mixer.com/api/v1/channels/" .. data["ownerChannelId"] .. "/features", true)
+      check("https://mixer.com/api/v1/channels/" .. data["ownerChannelId"] .. "/manifest.light2", true)
+      check("https://mixer.com/api/v1/channels/" .. data["ownerChannelId"], true)
+      check("https://mixer.com/api/v1/chats/" .. data["ownerChannelId"] .. "/anonymous", true)
+      check("https://mixer.com/api/v1/clips/channels/" .. data["ownerChannelId"], true)
+      check("https://mixer.com/api/v1/types/" .. data["typeId"], true)
+      check("https://mixer.com/api/v1/types/" .. data["typeId"] .. "?noCount=1", true)
+      check("https://mixer.com/api/v2/channels/" .. data["ownerChannelId"] .. "/viewerCount", true)
+      check("https://mixer.com/api/v2/channels/" .. data["ownerChannelId"] .. "/viewerCount", true)
+      check("https://mixer.com/api/v2/chats/" .. data["ownerChannelId"] .. "/history", true)
+      check("https://mixer.com/api/v2/clips/channels/" .. data["ownerChannelId"] .. "/settings", true)
+      check("https://mixer.com/api/v2/leaderboards/embers-weekly/channels/" .. data["ownerChannelId"], true)
+      check("https://mixer.com/api/v2/levels/patronage/channels/" .. data["ownerChannelId"] .. "/status/all", true)
+      check("https://mixer.com/api/v2/vods/channels/" .. data["ownerChannelId"], true)
+    end
+    if string.match(url, "^https?://mixer%.com/api/v1/channels/[0-9]+$") then
+      local data = load_json_file(html)
+      check("https://mixer.com/" .. data["token"] .. "?clip=" .. current_id, true)
+      check("https://mixer.com/api/v1/channels/" .. data["token"], true)
+      check("https://mixer.com/api/v1/channels/" .. data["token"] .. "?noCount=1", true)
+      check("https://mixer.com/api/v1/users/" .. data["userId"] .. "/achievements", true)
+      check("https://mixer.com/api/v1/users/" .. data["userId"] .. "/achievements?noCount=1", true)
+      check("https://mixer.com/api/v1/users/" .. data["userId"] .. "/avatar?w=64&h=64", true)
+      check("https://mixer.com/api/v1/users/" .. data["userId"] .. "/teams", true)
+      check("https://mixer.com/api/v1/users/" .. data["userId"] .. "/teams?noCount=1", true)
+      check("https://mixer.com/api/v1/users/" .. data["userId"], true)
+      check("https://mixer.com/api/v1/users/" .. data["userId"] .. "?noCount=1", true)
     end
     for newurl in string.gmatch(string.gsub(html, "&quot;", '"'), '([^"]+)') do
       checknewurl(newurl)
@@ -179,6 +222,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   local match = string.match(url["url"], "^https?://mixer%.com/api/v1/clips/([0-9a-f%-]+)$")
   if match ~= nil then
     ids[match] = true
+    current_id = match
   end
 
   if status_code >= 300 and status_code <= 399 then
