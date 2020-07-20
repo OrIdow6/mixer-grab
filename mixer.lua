@@ -46,7 +46,10 @@ allowed = function(url, parenturl)
 
   if string.match(url, "'+")
     or string.match(url, "[<>\\\"'%*%$;%^%[%],%(%){}\n]")
-    or not string.match(url, "^https?://[^/]*mixer%.com") then
+    or not (
+      string.match(url, "^https?://[^/]*mixer%.com")
+      or string.match(url, "^https?://[^/]*xboxlive%.com")
+    ) then
     return false
   end
 
@@ -61,7 +64,24 @@ allowed = function(url, parenturl)
     tested[s] = tested[s] + 1
   end
 
+  if string.match(url, "^https?://.+%.xboxlive%.com/")
+    and not string.match(url, "/source%.mp4%?") then
+    return true
+  end
+
+  for s in string.gmatch(url, "([0-9a-zA-Z%-_]+)") do
+    if ids[s] then
+      return true
+    end
+  end
+
   for s in string.gmatch(url, "([0-9a-f%-]+)") do
+    if ids[s] then
+      return true
+    end
+  end
+
+  for s in string.gmatch(url, "([0-9]+)") do
     if ids[s] then
       return true
     end
@@ -147,35 +167,31 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
 
   if allowed(url, nil) and status_code == 200
     and not string.match(url, "%.ts$")
+    and not string.match(url, "%.png$")
     and not string.match(url, "^https?://uploads%.mixer%.com/") then
     html = read_file(file)
-    if string.match(url, "%.m3u8$") then
+    if string.match(url, "%.m3u8") then
       for newurl in string.gmatch(html, "([^\r\n]+)") do
-        checknewurl(newurl, true)
+        if not string.find(newurl, "/") then
+          checknewshorturl(newurl)
+        else
+          checknewurl(newurl, true)
+        end
       end
     end
     if string.match(url, "^https?://mixer%.com/api/v1/clips/[0-9a-f%-]+$") then
       local data = load_json_file(html)
-      check("https://mixer.com/api/v1/ascension/channels/" .. data["ownerChannelId"] .. "/details", true)
-      check("https://mixer.com/api/v1/channels/" .. data["ownerChannelId"] .. "/broadcast", true)
-      check("https://mixer.com/api/v1/channels/" .. data["ownerChannelId"] .. "/features", true)
-      check("https://mixer.com/api/v1/channels/" .. data["ownerChannelId"] .. "/manifest.light2", true)
       check("https://mixer.com/api/v1/channels/" .. data["ownerChannelId"], true)
-      check("https://mixer.com/api/v1/chats/" .. data["ownerChannelId"] .. "/anonymous", true)
-      check("https://mixer.com/api/v1/clips/channels/" .. data["ownerChannelId"], true)
       check("https://mixer.com/api/v1/types/" .. data["typeId"], true)
       check("https://mixer.com/api/v1/types/" .. data["typeId"] .. "?noCount=1", true)
-      check("https://mixer.com/api/v2/channels/" .. data["ownerChannelId"] .. "/viewerCount", true)
-      check("https://mixer.com/api/v2/channels/" .. data["ownerChannelId"] .. "/viewerCount", true)
-      check("https://mixer.com/api/v2/chats/" .. data["ownerChannelId"] .. "/history", true)
-      check("https://mixer.com/api/v2/clips/channels/" .. data["ownerChannelId"] .. "/settings", true)
-      check("https://mixer.com/api/v2/leaderboards/embers-weekly/channels/" .. data["ownerChannelId"], true)
-      check("https://mixer.com/api/v2/levels/patronage/channels/" .. data["ownerChannelId"] .. "/status/all", true)
-      check("https://mixer.com/api/v2/vods/channels/" .. data["ownerChannelId"], true)
     end
     if string.match(url, "^https?://mixer%.com/api/v1/channels/[0-9]+$") then
       local data = load_json_file(html)
-      check("https://mixer.com/" .. data["token"] .. "?clip=" .. current_id, true)
+      if item_type == "clip" then
+        check("https://mixer.com/" .. data["token"] .. "?clip=" .. current_id, true)
+      elseif item_type == "rec" then
+        check("https://mixer.com/" .. data["token"] .. "?vod=" .. current_id, true)
+      end
       check("https://mixer.com/api/v1/channels/" .. data["token"], true)
       check("https://mixer.com/api/v1/channels/" .. data["token"] .. "?noCount=1", true)
       check("https://mixer.com/api/v1/users/" .. data["userId"] .. "/achievements", true)
@@ -185,6 +201,45 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       check("https://mixer.com/api/v1/users/" .. data["userId"] .. "/teams?noCount=1", true)
       check("https://mixer.com/api/v1/users/" .. data["userId"], true)
       check("https://mixer.com/api/v1/users/" .. data["userId"] .. "?noCount=1", true)
+      check("https://mixer.com/api/v1/ascension/channels/" .. data["id"] .. "/details", true)
+      check("https://mixer.com/api/v1/channels/" .. data["id"] .. "/broadcast", true)
+      check("https://mixer.com/api/v1/channels/" .. data["id"] .. "/features", true)
+      check("https://mixer.com/api/v1/channels/" .. data["id"] .. "/manifest.light2", true)
+      check("https://mixer.com/api/v2/channels/" .. data["id"] .. "/viewerCount", true)
+      check("https://mixer.com/api/v2/chats/" .. data["id"] .. "/history", true)
+      check("https://mixer.com/api/v2/clips/channels/" .. data["id"] .. "/settings", true)
+      check("https://mixer.com/api/v2/leaderboards/embers-weekly/channels/" .. data["id"], true)
+      check("https://mixer.com/api/v2/levels/patronage/channels/" .. data["id"] .. "/status/all", true)
+      check("https://mixer.com/api/v2/vods/channels/" .. data["id"], true)
+      check("https://mixer.com/api/v1/chats/" .. data["id"] .. "/anonymous", true)
+      check("https://mixer.com/api/v1/clips/channels/" .. data["id"], true)
+    end
+    if string.match(url, "^https?://mixer%.com/api/v1/recordings/[0-9]+$") then
+      local data = load_json_file(html)
+      if data["contentId"] == nil then
+        abortgrab = true
+        return urls
+      end
+      ids[data["contentId"]] = true
+      check("https://mixer.com/api/v1/recordings/" .. data["contentId"], true)
+      check("https://mixer.com/api/v2/vods/" .. data["contentId"], true)
+      check("https://mixer.com/api/v2/vods/" .. data["id"], true)
+      if current_id == tostring(data["id"]) then
+        current_id = data["contentId"]
+      end
+    end
+    if string.match(url, "^https?://mixer%.com/api/v2/vods/([^/]+)$") then
+      local data = load_json_file(html)
+      if data["shareableId"] == nil then
+        abortgrab = true
+        return urls
+      end
+      ids[data["shareableId"]] = true
+      current_id = data["shareableId"]
+      check("https://mixer.com/api/v1/recordings/" .. data["shareableId"], true)
+      check("https://mixer.com/api/v2/vods/" .. data["shareableId"], true)
+      check("https://mixer.com/api/v2/vods/channels/" .. data["ownerChannelId"], true)
+      check("https://mixer.com/api/v1/channels/" .. data["ownerChannelId"], true)
     end
     for newurl in string.gmatch(string.gsub(html, "&quot;", '"'), '([^"]+)') do
       checknewurl(newurl)
@@ -219,10 +274,18 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   io.stdout:write(url_count .. "=" .. status_code .. " " .. url["url"] .. "  \n")
   io.stdout:flush()
 
-  local match = string.match(url["url"], "^https?://mixer%.com/api/v1/clips/([0-9a-f%-]+)$")
-  if match ~= nil then
-    ids[match] = true
-    current_id = match
+  if item_type == "clip" then
+    local match = string.match(url["url"], "^https?://mixer%.com/api/v1/clips/([0-9a-f%-]+)$")
+    if match ~= nil then
+      ids[match] = true
+      current_id = match
+    end
+  elseif item_type == "rec" then
+    local match = string.match(url["url"], "^https?://mixer%.com/api/v1/recordings/([0-9]+)$")
+    if match ~= nil then
+      ids[match] = true
+      current_id = match
+    end
   end
 
   if status_code >= 300 and status_code <= 399 then
