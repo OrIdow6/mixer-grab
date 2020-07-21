@@ -228,6 +228,11 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       check("https://mixer.com/api/v1/recordings/" .. contentId, true)
       check("https://mixer.com/api/v2/vods/" .. contentId, true)
       check("https://mixer.com/api/v2/vods/" .. data["id"], true)
+      for index,locator in pairs(data["vods"]) do
+        if locator["format"] == "chat" then
+          check(locator["baseUrl"] .. "source.json", true)
+        end
+      end
       if current_id == tostring(data["id"]) then
         current_id = contentId
       end
@@ -244,27 +249,16 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       check("https://mixer.com/api/v2/vods/" .. data["shareableId"], true)
       check("https://mixer.com/api/v2/vods/channels/" .. data["ownerChannelId"], true)
       check("https://mixer.com/api/v1/channels/" .. data["ownerChannelId"], true)
-    end
-    for newurl in string.gmatch(string.gsub(html, "&quot;", '"'), '([^"]+)') do
-      checknewurl(newurl)
-    end
-    for newurl in string.gmatch(string.gsub(html, "&#039;", "'"), "([^']+)") do
-      checknewurl(newurl)
-    end
-    for newurl in string.gmatch(html, ">%s*([^<%s]+)") do
-      checknewurl(newurl)
-    end
-    for newurl in string.gmatch(html, "href='([^']+)'") do
-      checknewshorturl(newurl)
-    end
-    for newurl in string.gmatch(html, "[^%-]href='([^']+)'") do
-      checknewshorturl(newurl)
-    end
-    for newurl in string.gmatch(html, '[^%-]href="([^"]+)"') do
-      checknewshorturl(newurl)
-    end
-    for newurl in string.gmatch(html, ":%s*url%(([^%)]+)%)") do
-      checknewurl(newurl)
+      
+      for index,locator in pairs(data["contentLocators"]) do
+        if locator["locatorType"] == "SmoothStreaming" then
+              check(locator["uri"], true)
+        elseif locator["locatorType"] == "Thumbnail_Large" then
+            check(locator["uri"], true)
+        elseif locator["locatorType"] == "Thumbnail_Small" then
+            check(locator["uri"], true)
+        end
+      end
     end
   end
 
