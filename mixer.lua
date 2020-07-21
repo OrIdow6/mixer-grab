@@ -216,16 +216,20 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     end
     if string.match(url, "^https?://mixer%.com/api/v1/recordings/[0-9]+$") then
       local data = load_json_file(html)
-      if data["contentId"] == nil then
-        abortgrab = true
-        return urls
+	  local contentId = data["contentId"]
+      if contentId == nil then
+        contentId = string.match(data["vods"][1]["baseUrl"], "%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x")
+        if contentId == nil then
+          abortgrab = true
+          return urls
+        end
       end
-      ids[data["contentId"]] = true
-      check("https://mixer.com/api/v1/recordings/" .. data["contentId"], true)
-      check("https://mixer.com/api/v2/vods/" .. data["contentId"], true)
+      ids[contentId] = true
+      check("https://mixer.com/api/v1/recordings/" .. contentId, true)
+      check("https://mixer.com/api/v2/vods/" .. contentId, true)
       check("https://mixer.com/api/v2/vods/" .. data["id"], true)
       if current_id == tostring(data["id"]) then
-        current_id = data["contentId"]
+        current_id = contentId
       end
     end
     if string.match(url, "^https?://mixer%.com/api/v2/vods/([^/]+)$") then
