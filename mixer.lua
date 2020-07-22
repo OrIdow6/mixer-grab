@@ -52,6 +52,10 @@ allowed = function(url, parenturl)
     ) then
     return false
   end
+  
+  if string.match(url, "%.ts$") then
+    return false
+  end
 
   local tested = {}
   for s in string.gmatch(url, "([^/]+)") do
