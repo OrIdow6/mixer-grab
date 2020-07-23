@@ -286,6 +286,10 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
       current_id = match
     end
   end
+  
+  if status_code == 400 and string.match(url["url"], "^https?://mixer%.com/api/v2/vods/([0-9]+)$") then
+    return wget.actions.EXIT
+  end
 
   if status_code >= 300 and status_code <= 399 then
     local newloc = string.match(http_stat["newloc"], "^([^#]+)")
