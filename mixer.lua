@@ -46,6 +46,7 @@ allowed = function(url, parenturl)
 
   if string.match(url, "'+")
     or string.match(url, "[<>\\\"'%*%$;%^%[%],%(%){}\n]")
+    or (item_type == 'rec-meta' and string.match(url, "%.ts$"))
     or not (
       string.match(url, "^https?://[^/]*mixer%.com")
       or string.match(url, "^https?://[^/]*xboxlive%.com")
@@ -189,7 +190,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       local data = load_json_file(html)
       if item_type == "clip" then
         check("https://mixer.com/" .. data["token"] .. "?clip=" .. current_id, true)
-      elseif item_type == "rec" then
+      elseif string.match(item_type, "^rec") then
         check("https://mixer.com/" .. data["token"] .. "?vod=" .. current_id, true)
       end
       check("https://mixer.com/api/v1/channels/" .. data["token"], true)
@@ -278,7 +279,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
       ids[match] = true
       current_id = match
     end
-  elseif item_type == "rec" then
+  elseif string.match(item_type, "^rec") then
     local match = string.match(url["url"], "^https?://mixer%.com/api/v1/recordings/([0-9]+)$")
     if match ~= nil then
       ids[match] = true
